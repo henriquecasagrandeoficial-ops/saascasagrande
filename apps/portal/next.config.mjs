@@ -8,25 +8,24 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 loadRootEnv(__dirname);
 
 /**
- * Rewrites só para desenvolvimento local (3 processos nas portas 3000/3001/3002).
- * Em produção o ideal é um único deploy / um único domínio — sem ORIGIN externos.
- * Se DONA_LU_ORIGIN / ALLATIVA_ORIGIN estiverem definidos, usamos (avançado).
+ * Rewrites para os apps filhos:
+ * - Só em desenvolvimento local (`next dev`): proxy → localhost:3001/3002.
+ * - Na Vercel / produção: sem rewrite externo (evita DNS_HOSTNAME_RESOLVED_PRIVATE).
+ *   Os links do Hub continuam relativos (`/dona-lu/admin`, `/allativa/admin`).
  */
-const isProd = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
-const donaLuOrigin = process.env.DONA_LU_ORIGIN?.trim();
-const allativaOrigin = process.env.ALLATIVA_ORIGIN?.trim();
+const isLocalDev =
+  process.env.VERCEL !== "1" && process.env.NODE_ENV === "development";
 
 const nextConfig = {
   transpilePackages: ["@casagrande/auth"],
   outputFileTracingRoot: path.join(__dirname, "../../"),
   async rewrites() {
-    // Produção sem origins: sem proxy externo (mesmo host / estrutura única).
-    if (isProd && !donaLuOrigin && !allativaOrigin) {
+    if (!isLocalDev) {
       return [];
     }
 
-    const dona = donaLuOrigin || "http://localhost:3001";
-    const alla = allativaOrigin || "http://localhost:3002";
+    const dona = process.env.DONA_LU_ORIGIN?.trim() || "http://localhost:3001";
+    const alla = process.env.ALLATIVA_ORIGIN?.trim() || "http://localhost:3002";
 
     return [
       { source: "/dona-lu", destination: `${dona}/dona-lu` },
