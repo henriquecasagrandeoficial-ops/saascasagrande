@@ -1,0 +1,279 @@
+// Prisma schema — AllAtiva Joias
+// Banco: PostgreSQL (funciona tanto localmente quanto na Vercel).
+// A conexão vem da variável de ambiente DATABASE_URL.
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../generated/client"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  order     Int       @default(0)
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([order])
+}
+
+model Product {
+  id               String            @id @default(cuid())
+  title            String
+  description      String
+  imageUrl         String
+  price            Float
+  costPrice        Float             @default(0)
+  isAvailable      Boolean           @default(true)
+  // Soft delete: produto some das listagens, mas permanece para o histórico de vendas.
+  isDeleted        Boolean           @default(false)
+  // Código interno (Ref / SKU) — uso administrativo/PDV; NÃO exibir na vitrine.
+  productCode      String?           @unique
+  // Peso total da peça (g) informado na Ficha Técnica.
+  totalWeightG     Float?
+  pricingStrategy  String? // markupPercent | marginPercent | fixedProfit | finalPrice
+  pricingValue     Float?
+  // Opcional: ao excluir a categoria, fica null (onDelete: SetNull).
+  categoryId       String?
+  category         Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  orderItems       OrderItem[]
+  compositionItems CompositionItem[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([categoryId])
+  @@index([title])
+  @@index([isAvailable])
+  @@index([isDeleted])
+  @@index([isDeleted, isAvailable])
+  @@index([categoryId, title])
+}
+
+// Insumos da ourivesaria: metais, gemas e componentes.
+model Material {
+  id               String            @id @default(cuid())
+  name             String            @unique
+  type             String            @default("metal") // metal | gema | componente
+  purchasePrice    Float // custo do lote/compra fechada
+  purchaseQuantity Float // quantidade contida na compra
+  unit             String // g | ct | un | mg | cm | par
+  // Metadados estruturados p/ a Requisição de Materiais (compras). Opcionais:
+  // preenchidos pelos construtores da Ficha Técnica; nulos p/ itens avulsos.
+  attrCut          String? // pedra: modelo/lapidação
+  attrColor        String? // pedra: cor
+  attrSizeMm       Float? // pedra: tamanho (mm) / corrente: espessura (mm)
+  attrMaterial     String? // metal/corrente/fio: material base
+  attrMesh         String? // corrente: malha/modelo
+  attrProfile      String? // fio: perfil (redondo/chato...)
+  attrGauge        Float? // fio: bitola/medida
+  weightPerCm      Float? // corrente/fio: peso por cm (g)
+  purity           Float? // metal: teor da liga (0–1)
+  pureMetalName    String? // liga: metal nobre puro
+  alloyMetalName   String? // liga: pré-liga (adição)
+  compositionItems CompositionItem[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([type])
+  @@index([attrCut])
+  @@index([attrColor])
+  @@index([attrMaterial])
+  @@index([attrProfile])
+}
+
+// Composição da joia: quanto de cada material entra em uma peça.
+model CompositionItem {
+  id              String         @id @default(cuid())
+  productId       String
+  product         Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  materialId      String
+  material        Material       @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  quantityUsed    Float
+  // Ordem de cravação / uso (principalmente pedras).
+  sequenceOrder   Int            @default(0)
+  // Categoria visual da linha na Ficha Técnica.
+  lineKind        String         @default("outro") // pedra | metal | corrente | fio | outro
+  // Auditoria: folha expandida a partir de uma Ordem × N (snapshot).
+  sourcePatternId String?
+  sourcePattern   SupplyPattern? @relation(fields: [sourcePatternId], references: [id], onDelete: SetNull)
+  patternQty      Float?
+  createdAt       DateTime       @default(now())
+
+  @@unique([productId, materialId])
+  @@index([productId])
+  @@index([materialId])
+  @@index([productId, sequenceOrder])
+  @@index([sourcePatternId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Biblioteca de Insumos da ourivesaria (módulo de engenharia de peças)
+// ─────────────────────────────────────────────────────────────
+
+// Pedras / gemas cadastradas para composição das joias.
+model Stone {
+  id           String              @id @default(cuid())
+  name         String
+  cut          String              @default("brilhante") // lapidação: navete, gota, brilhante...
+  color        String              @default("branco") // nome da cor (base p/ bolinha colorida)
+  sizeMm       Float? // tamanho em milímetros
+  weightCt     Float               @default(0) // peso por pedra em quilates (pontos = ct * 100)
+  unitPrice    Float               @default(0) // valor por unidade
+  patternItems SupplyPatternItem[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([name])
+  @@index([cut])
+  @@index([color])
+  @@index([sizeMm])
+  @@index([cut, color, sizeMm])
+}
+
+// Correntes (malhas prontas) vendidas por cm ou unidade.
+model Chain {
+  id           String              @id @default(cuid())
+  name         String
+  mesh         String              @default("veneziana") // malha/modelo: veneziana, cartier...
+  material     String              @default("Ouro 18k")
+  thicknessMm  Float? // espessura em mm
+  weightPerCm  Float? // peso por cm (g)
+  pricePerCm   Float               @default(0) // valor por cm
+  patternItems SupplyPatternItem[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([name])
+  @@index([mesh])
+  @@index([material])
+}
+
+// Fios e chapas (laminados) usados na confecção de garras, chatões etc.
+// Herdam o Preço Definido por Grama da Liga Base (Cadeia de Herança de Custos).
+model Wire {
+  id           String              @id @default(cuid())
+  name         String
+  material     String              @default("Ouro 18k") // espelho do nome da liga (denormalizado)
+  profile      String              @default("redondo") // redondo, quadrado, meia-cana, chato
+  gauge        Float               @default(0) // bitola/espessura em mm (0.60, 0.70...)
+  widthMm      Float? // largura (para perfil chato/laminado)
+  weightPerCm  Float? // peso por cm (g) — base do custo: g × pricePerGram da liga
+  // Cache legado (cm): weightPerCm × alloy.pricePerGram. Preferir calcular via liga.
+  pricePerCm   Float               @default(0)
+  alloyId      String?
+  alloy        MetalAlloy?         @relation(fields: [alloyId], references: [id], onDelete: SetNull)
+  patternItems SupplyPatternItem[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([name])
+  @@index([profile])
+  @@index([material])
+  @@index([gauge])
+  @@index([alloyId])
+  @@index([profile, material, gauge])
+}
+
+// Ligas metálicas: teor + metais base + preço definido pelo Admin (R$/g).
+model MetalAlloy {
+  id                  String              @id @default(cuid())
+  name                String // ex.: "Ouro 18k Amarelo (Au750)"
+  purity              Float               @default(0.75) // teor do metal nobre (0–1)
+  pureMetalName       String              @default("Ouro 24k") // metal nobre puro
+  pureMetalPricePerG  Float               @default(0) // R$/g do metal nobre puro (referência)
+  alloyMetalName      String              @default("Pré-liga (Prata/Cobre)") // liga de adição
+  alloyMetalPricePerG Float               @default(0) // R$/g da pré-liga (referência)
+  // Preço Definido por Grama — valor oficial usado em todo o ERP (fios, ficha, etc.).
+  pricePerGram        Float               @default(0)
+  wires               Wire[]
+  patternItems        SupplyPatternItem[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@index([name])
+}
+
+// Ordem / Kit / Padrão de insumos (sub-assembly reutilizável).
+model SupplyPattern {
+  id               String              @id @default(cuid())
+  name             String
+  description      String?
+  isActive         Boolean             @default(true)
+  items            SupplyPatternItem[]
+  compositionItems CompositionItem[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
+
+// Linha da Ordem — aponta para a biblioteca (Stone/Wire/Chain/Alloy).
+model SupplyPatternItem {
+  id            String        @id @default(cuid())
+  patternId     String
+  pattern       SupplyPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
+  // pedra | metal | corrente | fio
+  itemKind      String
+  sequenceOrder Int           @default(0)
+  quantity      Float // qty por 1 unidade da Ordem
+  stoneId       String?
+  stone         Stone?        @relation(fields: [stoneId], references: [id], onDelete: Restrict)
+  alloyId       String?
+  alloy         MetalAlloy?   @relation(fields: [alloyId], references: [id], onDelete: Restrict)
+  chainId       String?
+  chain         Chain?        @relation(fields: [chainId], references: [id], onDelete: Restrict)
+  wireId        String?
+  wire          Wire?         @relation(fields: [wireId], references: [id], onDelete: Restrict)
+  notes         String?
+
+  @@index([patternId, sequenceOrder])
+  @@index([stoneId])
+  @@index([alloyId])
+  @@index([chainId])
+  @@index([wireId])
+}
+
+model Order {
+  id             String      @id @default(cuid())
+  customerName   String
+  customerPhone  String? // WhatsApp da encomenda (opcional)
+  sellerName     String?     @map("waiterName") // vendedor(a) responsável
+  status         String      @default("PENDING") // PENDING | COMPLETED
+  totalAmount    Float
+  advancePayment Float       @default(0) // sinal pago antecipadamente
+  items          OrderItem[]
+  createdAt      DateTime    @default(now())
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([status, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id           String  @id @default(cuid())
+  orderId      String
+  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity     Int
+  priceAtTime  Float
+  costAtTime   Float   @default(0)
+  // Snapshot no momento da venda — histórico independente do cadastro atual.
+  productTitle String
+  productCode  String?
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}

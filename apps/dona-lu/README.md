@@ -11,10 +11,10 @@ Catálogo digital **Mobile-First** para a **Doceria Dona Lu**, com um **Painel d
 - **Grid responsivo**: 1 coluna (mobile) → 2 (tablet) → 3/4 (desktop).
 - Os dados vêm **do banco via Prisma** (Server Component) — sem mock.
 
-### Painel administrativo (`/admin`)
+### Painel administrativo (`/painel`)
 
-- **Login** em `/admin/login` (NextAuth, provedor de credenciais, 1 admin).
-- **Middleware** protege `/admin` e sub-rotas, redirecionando ao login.
+- **Login** em `/painel/login` (NextAuth, provedor de credenciais, 1 admin).
+- **Middleware** protege `/painel` e sub-rotas, redirecionando ao login.
 - **Dashboard** com contadores (categorias, produtos, indisponíveis).
 - **Categorias**: tabela + Dialog para criar/editar + excluir.
 - **Produtos**: tabela (miniatura, título, categoria, preço, status) + Sheet
@@ -89,7 +89,7 @@ app/
     produtos/actions.ts      # server actions (CRUD de produtos)
     (protected)/             # grupo protegido pelo layout + middleware
       layout.tsx             # sidebar fixa + verificação de sessão
-      page.tsx               # dashboard (/admin)
+      page.tsx               # dashboard (/painel)
       categorias/            # página + dialog de categorias
       produtos/              # página + sheet/form de produtos
 components/
@@ -106,7 +106,7 @@ prisma/
   schema.prisma              # models Category e Product (1:N)
   seed.ts                    # dados iniciais
 auth.ts | auth.config.ts     # configuração do NextAuth (Auth.js v5)
-middleware.ts                # protege /admin/*
+middleware.ts                # protege /painel/*
 ```
 
 ## Modelagem (Prisma)

@@ -11,7 +11,7 @@
     "dev:portal": "npm run dev -w @casagrande/portal",
     "dev:dona-lu": "npm run dev -w doceria-dona-lu",
     "dev:allativa": "npm run dev -w allativa-joias",
-    "build": "node scripts/vercel-build-portal.mjs",
+    "build": "npm run build -w @casagrande/portal",
     "build:portal": "npm run build -w @casagrande/portal",
     "build:all": "npm run build -w @casagrande/portal && npm run build -w doceria-dona-lu && npm run build -w allativa-joias",
     "lint": "npm run lint -w @casagrande/portal --if-present && npm run lint -w doceria-dona-lu --if-present && npm run lint -w allativa-joias --if-present"

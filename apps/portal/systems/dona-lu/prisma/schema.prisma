@@ -1,0 +1,391 @@
+// Prisma schema — Doceria Dona Lu
+// Banco: PostgreSQL (funciona tanto localmente quanto na Vercel).
+// A conexão vem da variável de ambiente DATABASE_URL.
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../generated/client"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  order     Int       @default(0)
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([order])
+}
+
+model Product {
+  id              String       @id @default(cuid())
+  title           String
+  description     String
+  imageUrl        String
+  price           Float
+  costPrice       Float        @default(0)
+  isAvailable     Boolean      @default(true)
+  // Soft delete: produto some da vitrine/PDV, mas permanece no histórico de vendas.
+  isDeleted       Boolean      @default(false)
+  // Estoque: inicia em 1 para o admin ajustar a quantidade real com facilidade.
+  stockQuantity   Int          @default(1)
+  pricingStrategy String? // markupPercent | marginPercent | fixedProfit | finalPrice
+  pricingValue    Float?
+  categoryId      String?
+  category        Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  orderItems      OrderItem[]
+  recipeItems     RecipeItem[]
+  technicalSheet  TechnicalSheet?
+  reviews         Review[]
+  modifierGroups  ProductModifierGroup[]
+  banners         Banner[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([categoryId])
+  @@index([isDeleted])
+}
+
+/// Banner promocional da vitrine (carrossel na home).
+model Banner {
+  id        String    @id @default(cuid())
+  imageUrl  String
+  /// Produto opcional vinculado ao banner (legado da vitrine pública).
+  productId String?
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  isActive  Boolean   @default(true)
+  order     Int       @default(0)
+  /// Janela de exibição (null = sem limite nesse extremo).
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([isActive, order])
+  @@index([productId])
+  @@index([startDate, endDate])
+}
+
+/// Grupo de variações/complementos (ex.: "Escolha 100 salgados", "Até 5 adicionais").
+model ProductModifierGroup {
+  id             String                 @id @default(cuid())
+  productId      String
+  product        Product                @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name           String
+  minSelections  Int                    @default(0) // 0 = opcional; 100 = exatamente/mínimo 100 unidades
+  maxSelections  Int                    @default(1) // teto total do grupo
+  sortOrder      Int                    @default(0)
+  options        ProductModifierOption[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@index([productId, sortOrder])
+}
+
+/// Opção dentro de um grupo (ex.: Coxinha, Morango).
+model ProductModifierOption {
+  id                   String              @id @default(cuid())
+  groupId              String
+  group                ProductModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name                 String
+  price                Float               @default(0) // custo extra por unidade da opção
+  maxQuantityPerOption Int                 @default(1) // quantas vezes a mesma opção pode entrar
+  sortOrder            Int                 @default(0)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([groupId, sortOrder])
+}
+
+/// Avaliação de cliente verificado (WhatsApp com pedido PAID/COMPLETED) ou manual (admin).
+model Review {
+  id            String   @id @default(cuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customerName  String
+  customerPhone String // dígitos normalizados
+  rating        Int // 1..5
+  comment       String
+  isVisible     Boolean  @default(false) // admin libera no site público
+  isHighlighted Boolean  @default(false) // destaque na página inicial (máx. 3 na query)
+  isManual      Boolean  @default(false) // criado pelo administrador
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([productId, isVisible])
+  @@index([isVisible, isHighlighted])
+  @@index([customerPhone, createdAt])
+}
+
+model Ingredient {
+  id               String                   @id @default(cuid())
+  name             String                   @unique
+  purchasePrice    Float // custo da embalagem fechada
+  purchaseQuantity Float // quantidade contida na embalagem
+  unit             String // kg | g | mg | L | ml | un
+  /// Fator de Correção / desperdício: % de perda (limpeza, cocção, evaporação).
+  /// 0 = usa 100% do comprado; 20 = só 80% é utilizável → custo real sobe.
+  wastePercent     Float                    @default(0)
+  recipeItems      RecipeItem[]
+  baseRecipeItems  BaseRecipeItem[]
+  sheetLines       TechnicalSheetLine[]
+  priceHistory     IngredientPriceHistory[]
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+}
+
+/// Histórico de preço de matéria-prima — base para alertas de margem.
+model IngredientPriceHistory {
+  id                String     @id @default(cuid())
+  ingredientId      String
+  ingredient        Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  oldPurchasePrice  Float
+  newPurchasePrice  Float
+  oldPurchaseQty    Float?
+  newPurchaseQty    Float?
+  note              String?
+  createdAt         DateTime   @default(now())
+
+  @@index([ingredientId, createdAt])
+  @@map("ingredient_price_history")
+}
+
+/// Sub-receita / produto intermediário (ex.: Massa de Salgado, Recheio de Doce).
+/// Não vende na vitrine — só entra em fichas técnicas e outras bases.
+model BaseRecipe {
+  id            String            @id @default(cuid())
+  name          String            @unique
+  description   String?
+  /// Quantidade produzida pela receita base (ex.: 100 un ou 2 kg).
+  yieldQuantity Float
+  yieldUnit     String // kg | g | L | ml | un
+  /// Custo unitário cacheado após último cálculo (opcional; engine sempre recalcula).
+  unitCostCache Float?
+  totalCostCache Float?
+  items         BaseRecipeItem[]
+  /// Uso desta base em outras bases (sub-composição).
+  usedInItems   BaseRecipeItem[]  @relation("NestedBaseRecipe")
+  sheetLines    TechnicalSheetLine[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@map("base_recipes")
+}
+
+/// Linha de uma sub-receita: matéria-prima OU outra sub-receita (com detecção de ciclo na engine).
+model BaseRecipeItem {
+  id                 String      @id @default(cuid())
+  baseRecipeId       String
+  baseRecipe         BaseRecipe  @relation(fields: [baseRecipeId], references: [id], onDelete: Cascade)
+  /// INGREDIENT | BASE_RECIPE
+  componentType      String      @default("INGREDIENT")
+  ingredientId       String?
+  ingredient         Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  nestedBaseRecipeId String?
+  nestedBaseRecipe   BaseRecipe? @relation("NestedBaseRecipe", fields: [nestedBaseRecipeId], references: [id], onDelete: Restrict)
+  quantityUsed       Float
+  sortOrder          Int         @default(0)
+  createdAt          DateTime    @default(now())
+
+  @@index([baseRecipeId, sortOrder])
+  @@index([ingredientId])
+  @@index([nestedBaseRecipeId])
+  @@map("base_recipe_items")
+}
+
+/// Ficha Técnica 1:1 com o produto de venda (não substitui RecipeItem legado ainda).
+model TechnicalSheet {
+  id                   String               @id @default(cuid())
+  productId            String               @unique
+  product              Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Margem/markup desejado pelo admin (ex.: 150 = 150% sobre o custo).
+  desiredMarkupPercent Float?
+  notes                String?
+  /// Snapshot do último custo total calculado na engine (auditoria).
+  lastTotalCost        Float?
+  lastSuggestedPrice   Float?
+  lines                TechnicalSheetLine[]
+  dynamicCosts         TechnicalSheetCost[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@map("technical_sheets")
+}
+
+/// Linha da ficha: matéria-prima direta OU sub-receita.
+model TechnicalSheetLine {
+  id            String          @id @default(cuid())
+  sheetId       String
+  sheet         TechnicalSheet  @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  /// INGREDIENT | BASE_RECIPE
+  componentType String          @default("INGREDIENT")
+  ingredientId  String?
+  ingredient    Ingredient?     @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  baseRecipeId  String?
+  baseRecipe    BaseRecipe?     @relation(fields: [baseRecipeId], references: [id], onDelete: Restrict)
+  quantityUsed  Float
+  sortOrder     Int             @default(0)
+  createdAt     DateTime        @default(now())
+
+  @@index([sheetId, sortOrder])
+  @@index([ingredientId])
+  @@index([baseRecipeId])
+  @@map("technical_sheet_lines")
+}
+
+/// Custos adicionais dinâmicos nomeados pelo admin (Energia, Taxa Cartão, etc.).
+model TechnicalSheetCost {
+  id        String         @id @default(cuid())
+  sheetId   String
+  sheet     TechnicalSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  name      String
+  /// FIXED = R$ | PERCENT = % sobre o preço de venda
+  kind      String         @default("FIXED")
+  value     Float
+  sortOrder Int            @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([sheetId, sortOrder])
+  @@map("technical_sheet_costs")
+}
+
+model RecipeItem {
+  id           String     @id @default(cuid())
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  quantityUsed Float
+  createdAt    DateTime   @default(now())
+
+  @@unique([productId, ingredientId])
+  @@index([productId])
+  @@index([ingredientId])
+}
+
+model Order {
+  id                 String      @id @default(cuid())
+  customerName       String
+  customerPhone      String? // WhatsApp da encomenda (opcional)
+  customerEmail      String? // obrigatório no checkout online (payer MP)
+  waiterName         String?
+  // State machine:
+  // PDV: PENDING → COMPLETED | CANCELED
+  // Online (Checkout Pro): AWAITING_PAYMENT → PAID → COMPLETED | CANCELED
+  // Cozinha NUNCA vê AWAITING_PAYMENT — só PENDING (balcão) e PAID (pago online).
+  status             String      @default("PENDING")
+  source             String      @default("PDV") // PDV | ONLINE
+  totalAmount        Float
+  advancePayment     Float       @default(0) // sinal pago antecipadamente (PDV)
+  deliveryAddress    String?
+  deliveryNotes      String?
+  // Retirada / encomenda (checkout online)
+  pickupTime         String? // HH:mm — horário escolhido pelo cliente
+  deliveryDate       String? // YYYY-MM-DD — preenchido só em encomenda
+  // Pagamento online (legado)
+  paymentId          String?     @unique // ID do pagamento aprovado no gateway
+  paymentProvider    String? // legado
+  paymentMethod      String? // pix | visa | master | checkout_pro | …
+  // Token opaco para o cliente voltar das back_urls / consultar status (não é secret do gateway).
+  paymentAccessToken String?     @unique
+  paidAt             DateTime?
+  /// Snapshot de cupom aplicado no checkout (recalculado no servidor).
+  couponCode         String?
+  discountAmount     Float       @default(0)
+  /// Nome do brinde liberado no momento do pedido (se houver).
+  giftName           String?
+  /// true = estoque já foi reservado na criação (checkout online).
+  /// false = legado / PDV (baixa no PENDING ou no pagamento).
+  stockReserved      Boolean     @default(false)
+  items              OrderItem[]
+  createdAt          DateTime    @default(now())
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([source])
+  @@map("orders")
+}
+
+/// Configurações singleton da loja (horários, encomendas e pedido mínimo).
+model StoreSettings {
+  id                  String   @id @default("default")
+  openTime            String   @default("12:00") // HH:mm — fallback global
+  closeTime           String   @default("18:00") // HH:mm — fallback global
+  /// Slots selecionáveis no checkout, ex.: ["13:00","14:00","15:00"]
+  pickupSlots         String[] @default([])
+  /// Pedido mínimo (R$) — 0 = sem mínimo.
+  minOrderValue       Float    @default(0)
+  /// Dias de antecedência mínima para encomenda.
+  advanceNoticeDays   Int      @default(0)
+  /// Dias da semana liberados para encomenda (0=dom … 6=sáb). Ex.: [1,2,3,4,5,6]
+  allowedPreOrderDays Int[]    @default([1, 2, 3, 4, 5, 6])
+  /// Horários por dia: { "0": { "closed": false, "open": "12:00", "close": "18:00" }, ... }
+  operatingHours      Json?
+  updatedAt           DateTime @updatedAt
+  createdAt           DateTime @default(now())
+
+  @@map("store_settings")
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+/// Cupom de desconto — valores sempre recalculados no servidor.
+model Coupon {
+  id               String       @id @default(cuid())
+  code             String       @unique
+  discountType     DiscountType
+  value            Float
+  minPurchaseValue Float        @default(0)
+  isActive         Boolean      @default(true)
+  expiresAt        DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([isActive, expiresAt])
+}
+
+/// Brinde liberado ao atingir um subtotal mínimo.
+model Gift {
+  id               String   @id @default(cuid())
+  name             String
+  minPurchaseValue Float    @default(0)
+  /// Miniatura opcional (upload via /api/file). Null = ícone genérico no cliente.
+  imageUrl         String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([isActive, minPurchaseValue])
+}
+
+model OrderItem {
+  id           String  @id @default(cuid())
+  orderId      String
+  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  // Snapshot do título no momento da venda (histórico sobrevive a soft delete / rename).
+  productTitle String  @default("")
+  quantity     Int
+  priceAtTime  Float
+  costAtTime   Float   @default(0)
+  /// Snapshot das escolhas de modificadores (JSON) — null em itens sem variação.
+  modifiers    Json?
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}

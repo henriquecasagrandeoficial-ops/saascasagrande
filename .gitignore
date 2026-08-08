@@ -97,3 +97,5 @@ $RECYCLE.BIN/
 
 # Nested app git metadata (cada app pode ter vindo de repo próprio)
 apps/*/.git/
+
+apps/portal/systems/*/generated/

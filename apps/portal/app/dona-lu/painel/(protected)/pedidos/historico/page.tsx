@@ -1,0 +1,147 @@
+import { prisma } from "@dona-lu/lib/prisma";
+import {
+  getOrderDateFilter,
+  type OrderPeriod,
+} from "@dona-lu/lib/order-period";
+import { getBrasiliaDayRange } from "@dona-lu/lib/timezone";
+import { HistoricoTable } from "@dona-lu/components/admin/historico-table";
+import { OrderHistoryFilters } from "@dona-lu/components/admin/order-history-filters";
+
+export const dynamic = "force-dynamic";
+
+const VALID_PERIODS = new Set(["today", "week", "month", "all"]);
+
+interface HistoricoPageProps {
+  searchParams: Promise<{ period?: string; date?: string }>;
+}
+
+export default async function HistoricoPedidosPage({
+  searchParams,
+}: HistoricoPageProps) {
+  const params = (await searchParams) ?? {};
+  const rawPeriod = params.period;
+  // Default "month" evita carregar o histórico inteiro na primeira visita.
+  const period: OrderPeriod = VALID_PERIODS.has(rawPeriod ?? "")
+    ? (rawPeriod as OrderPeriod)
+    : "month";
+  const selectedDate = params.date?.trim() || null;
+  const dayRange = selectedDate ? getBrasiliaDayRange(selectedDate) : null;
+
+  const createdAtFilter = dayRange
+    ? { gte: dayRange.gte, lt: dayRange.lt }
+    : getOrderDateFilter(period);
+
+  let orders: Awaited<
+    ReturnType<
+      typeof prisma.order.findMany<{
+        select: {
+          id: true;
+          customerName: true;
+          customerPhone: true;
+          waiterName: true;
+          createdAt: true;
+          totalAmount: true;
+          advancePayment: true;
+          paymentMethod: true;
+          pickupTime: true;
+          deliveryDate: true;
+          items: {
+            select: {
+              quantity: true;
+              priceAtTime: true;
+              productTitle: true;
+              modifiers: true;
+              product: { select: { title: true } };
+            };
+          };
+        };
+      }>
+    >
+  > = [];
+  let loadError: string | null = null;
+
+  try {
+    orders = await prisma.order.findMany({
+      where: {
+        status: "COMPLETED",
+        ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        customerName: true,
+        customerPhone: true,
+        waiterName: true,
+        createdAt: true,
+        totalAmount: true,
+        advancePayment: true,
+        paymentMethod: true,
+        pickupTime: true,
+        deliveryDate: true,
+        items: {
+          select: {
+            quantity: true,
+            priceAtTime: true,
+            productTitle: true,
+            modifiers: true,
+            product: { select: { title: true } },
+          },
+        },
+      },
+    });
+  } catch (error) {
+    console.error("historico pedidos:", error);
+    loadError =
+      "Não foi possível carregar o histórico. Verifique se o banco de dados está atualizado.";
+  }
+
+  const serializedOrders = orders.map((order) => ({
+    id: order.id,
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
+    waiterName: order.waiterName,
+    createdAt: order.createdAt.toISOString(),
+    totalAmount: order.totalAmount,
+    advancePayment: order.advancePayment,
+    paymentMethod: order.paymentMethod,
+    pickupTime: order.pickupTime,
+    deliveryDate: order.deliveryDate,
+    items: order.items.map((item) => ({
+      quantity: item.quantity,
+      priceAtTime: item.priceAtTime,
+      productTitle: item.productTitle,
+      modifiers: item.modifiers ?? null,
+      product: {
+        title:
+          (item.productTitle && item.productTitle.trim()) ||
+          item.product.title,
+      },
+    })),
+  }));
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-serif text-3xl font-bold text-stone-800">
+          Histórico de Pedidos
+        </h1>
+        <p className="mt-1 text-stone-500">
+          Consulte as comandas finalizadas por período ou dia específico.
+        </p>
+      </div>
+
+      <OrderHistoryFilters
+        currentPeriod={period}
+        selectedDate={dayRange ? selectedDate : null}
+      />
+
+      {loadError && (
+        <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+          {loadError}
+        </p>
+      )}
+
+      <HistoricoTable orders={serializedOrders} />
+    </div>
+  );
+}

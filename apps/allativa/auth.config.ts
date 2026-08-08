@@ -16,8 +16,8 @@ export const authConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const path = nextUrl.pathname;
-      const isOnLogin = path === "/admin/login";
-      const isOnAdmin = path.startsWith("/admin");
+      const isOnLogin = path === "/painel/login";
+      const isOnAdmin = path.startsWith("/painel");
 
       if (isOnLogin) {
         if (isLoggedIn) {
