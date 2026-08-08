@@ -25,7 +25,23 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const data = await getDashboardData();
+  let data;
+  try {
+    data = await getDashboardData();
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Falha ao carregar o dashboard.";
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
+        <h1 className="text-lg font-semibold">Não foi possível abrir o painel</h1>
+        <p className="mt-2 text-sm opacity-90">{message}</p>
+        <p className="mt-3 text-sm opacity-80">
+          Na Vercel, configure <code className="font-mono">DATABASE_URL</code>{" "}
+          (Confeitaria) e faça redeploy. Confira também os logs do deploy.
+        </p>
+      </div>
+    );
+  }
 
   const preferredLabel =
     data.preferredPaymentMethod.label ?? "Sem dados ainda";

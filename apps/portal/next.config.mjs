@@ -14,6 +14,24 @@ loadRootEnv(__dirname);
 const nextConfig = {
   transpilePackages: ["@casagrande/auth"],
   outputFileTracingRoot: path.join(__dirname, "../../"),
+  // Garante engines Prisma (custom output) no bundle serverless da Vercel.
+  outputFileTracingIncludes: {
+    "/*": [
+      "./systems/dona-lu/generated/**/*",
+      "./systems/allativa/generated/**/*",
+      "./systems/dona-lu/prisma/**/*",
+      "./systems/allativa/prisma/**/*",
+    ],
+  },
+  serverExternalPackages: ["@prisma/client", "prisma"],
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@dona-lu": path.join(__dirname, "systems/dona-lu"),
+      "@allativa": path.join(__dirname, "systems/allativa"),
+    };
+    return config;
+  },
   images: {
     localPatterns: [
       { pathname: "/api/file" },
