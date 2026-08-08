@@ -17,7 +17,7 @@ packages/
 
 1. `http://localhost:3000/login` — autenticação central
 2. `http://localhost:3000/hub` — escolha do sistema (2 cards)
-3. Card A → `/dona-lu/admin` | Card B → `/allativa/admin`
+3. Card A → `/dona-lu/painel` | Card B → `/allativa/painel`
 
 ## Pré-requisitos
 
@@ -59,17 +59,25 @@ npm run dev
 
 O portal faz rewrite de `/dona-lu/*` e `/allativa/*` para os apps filhos.
 
-## Deploy (Vercel)
+## Deploy (Vercel) — um único site
 
-### Opção recomendada (evita hacks de `.next`)
-Na Vercel → **Settings → General → Root Directory** → `apps/portal` → Save → Redeploy.
+Fluxo do usuário (mesmo domínio):
 
-Com isso o builder usa `apps/portal` diretamente (sem copiar `.next`).
+1. `/login` → autentica  
+2. `/hub` → escolhe o sistema  
+3. `/dona-lu/painel` ou `/allativa/painel` → painel escolhido  
 
-### Se o Root Directory estiver na raiz (`.`)
-`npm run build` compila o portal e **copia** `apps/portal/.next` → `.next` na raiz
-(cópia real — symlink quebra o tracing do `@swc/helpers` na Vercel).
+**Root Directory recomendado:** `apps/portal`
 
-Variáveis do portal: `AUTH_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `NEXT_PUBLIC_PORTAL_URL`, e opcionalmente `DONA_LU_ORIGIN` / `ALLATIVA_ORIGIN`.
+Variáveis necessárias no portal:
 
-Os sistemas (`dona-lu` / `allativa`) devem ser projetos Vercel separados (Root Directory `apps/dona-lu` e `apps/allativa`), cada um com seu banco e o mesmo `AUTH_SECRET` do portal.
+| Variável | Uso |
+|----------|-----|
+| `AUTH_SECRET` | Sessão JWT |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Login do Hub |
+
+`NEXT_PUBLIC_PORTAL_URL` é **opcional** na Vercel (usa `VERCEL_URL` automaticamente).
+
+Não é necessário `DONA_LU_ORIGIN` / `ALLATIVA_ORIGIN` em produção (isso era só proxy entre deploys separados / dev local).
+
+Os apps `dona-lu` e `allativa` ainda são pacotes do monorepo; em dev local o portal pode proxyar para as portas 3001/3002.

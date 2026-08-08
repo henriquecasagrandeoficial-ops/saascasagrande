@@ -72,10 +72,18 @@ export const sharedAuthBase = {
   },
 } satisfies Omit<NextAuthConfig, "callbacks">;
 
-/** Origem canônica do portal (SSO / redirects fora do basePath). */
+/** Origem canônica do site (SSO / redirects). */
 export function getPortalOrigin(): string {
   const fromEnv = process.env.NEXT_PUBLIC_PORTAL_URL?.trim();
   if (fromEnv) return fromEnv.replace(/\/$/, "");
+
+  // Deploy único na Vercel: um só domínio, sem “vários portais”.
+  const vercel = process.env.VERCEL_URL?.trim();
+  if (vercel) {
+    const host = vercel.replace(/^https?:\/\//, "");
+    return `https://${host}`;
+  }
+
   return "http://localhost:3000";
 }
 
@@ -86,6 +94,12 @@ export function portalOriginFromHeaders(input: {
 }): string {
   const fromEnv = process.env.NEXT_PUBLIC_PORTAL_URL?.trim();
   if (fromEnv) return fromEnv.replace(/\/$/, "");
+
+  const vercel = process.env.VERCEL_URL?.trim();
+  if (vercel) {
+    const host = vercel.replace(/^https?:\/\//, "");
+    return `https://${host}`;
+  }
 
   const host = input.forwardedHost ?? input.host ?? "localhost:3000";
   const proto = input.forwardedProto ?? "http";
@@ -99,3 +113,5 @@ export function portalLoginUrl(origin?: string): string {
 export function portalHubUrl(origin?: string): string {
   return `${(origin ?? getPortalOrigin()).replace(/\/$/, "")}/hub`;
 }
+
+export { syncVercelPostgresEnv } from "./sync-vercel-postgres-env";

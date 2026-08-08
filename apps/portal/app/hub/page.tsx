@@ -50,14 +50,14 @@ export default async function HubPage() {
 
       <section className="grid animate-in fade-in slide-in-from-bottom-3 gap-5 duration-700 sm:grid-cols-2">
         <SystemCard
-          href="/dona-lu/admin"
+          href="/dona-lu/painel"
           title="Sistema de Confeitaria"
           description="Cardápio digital, pedidos, estoque, promoções e painel completo da confeitaria."
           accentClassName="bg-rose-500/40"
           icon={CakeSlice}
         />
         <SystemCard
-          href="/allativa/admin"
+          href="/allativa/painel"
           title="Sistema de Joias"
           description="Catálogo, insumos, ficha técnica e operação do ateliê de joias."
           accentClassName="bg-emerald-600/40"

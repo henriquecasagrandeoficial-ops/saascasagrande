@@ -17,8 +17,8 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user;
       const path = nextUrl.pathname;
       // Com basePath, o middleware vê o path sem o prefixo /dona-lu.
-      const isOnLogin = path === "/admin/login";
-      const isOnAdmin = path.startsWith("/admin");
+      const isOnLogin = path === "/painel/login";
+      const isOnAdmin = path.startsWith("/painel");
 
       if (isOnLogin) {
         if (isLoggedIn) {

@@ -6,7 +6,7 @@ import { authConfig } from "@/auth.config";
 export const { auth: middleware } = NextAuth(authConfig);
 
 export const config = {
-  // Protege todas as rotas sob /admin (a lógica de redirecionamento e a
-  // liberação de /admin/login estão no callback `authorized`).
-  matcher: ["/admin/:path*"],
+  // Protege todas as rotas sob /painel (a lógica de redirecionamento e a
+  // liberação de /painel/login estão no callback `authorized`).
+  matcher: ["/painel/:path*"],
 };
