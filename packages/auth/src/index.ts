@@ -113,3 +113,5 @@ export function portalLoginUrl(origin?: string): string {
 export function portalHubUrl(origin?: string): string {
   return `${(origin ?? getPortalOrigin()).replace(/\/$/, "")}/hub`;
 }
+
+export { syncVercelPostgresEnv } from "./sync-vercel-postgres-env";

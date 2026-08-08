@@ -1,13 +1,16 @@
+import { syncVercelPostgresEnv } from "@casagrande/auth";
 import { PrismaClient } from "../generated/client";
+
+syncVercelPostgresEnv();
 
 const globalForPrisma = globalThis as unknown as {
   allativaPrisma: PrismaClient | undefined;
 };
 
 function createClient() {
-  if (!process.env.POSTGRES_PRISMA_URL && !process.env.DATABASE_URL) {
+  if (!process.env.POSTGRES_PRISMA_URL) {
     throw new Error(
-      "POSTGRES_PRISMA_URL não configurada. Defina a connection string do Sistema de Joias nas Environment Variables da Vercel."
+      "Banco de Joias não encontrado. Na Vercel, conecte o Postgres (Storage) ao projeto ou defina POSTGRES_PRISMA_URL / DATABASE_URL."
     );
   }
   return new PrismaClient({

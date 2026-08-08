@@ -1,4 +1,7 @@
+import { syncVercelPostgresEnv } from "@casagrande/auth";
 import { PrismaClient } from "../generated/client";
+
+syncVercelPostgresEnv();
 
 const globalForPrisma = globalThis as unknown as {
   donaLuPrisma: PrismaClient | undefined;
@@ -7,7 +10,7 @@ const globalForPrisma = globalThis as unknown as {
 function createClient() {
   if (!process.env.DATABASE_URL) {
     throw new Error(
-      "DATABASE_URL não configurada. Defina a connection string do Sistema de Confeitaria nas Environment Variables da Vercel."
+      "Banco da Confeitaria não encontrado. Na Vercel, conecte o Postgres (Storage) ao projeto ou defina DATABASE_URL / POSTGRES_PRISMA_URL."
     );
   }
   return new PrismaClient({
