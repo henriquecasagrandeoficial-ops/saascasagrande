@@ -24,20 +24,20 @@ import { cn } from "@/lib/utils";
 import { PendingOrdersBadge } from "@/components/admin/pending-orders-badge";
 
 const links = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/admin/categorias", label: "Categorias", icon: Tags },
-  { href: "/admin/produtos", label: "Produtos", icon: Package },
-  { href: "/admin/insumos", label: "Insumos", icon: Gem },
-  { href: "/admin/ficha-tecnica", label: "Ficha Técnica", icon: Calculator },
-  { href: "/admin/pedidos/novo", label: "Novo Pedido", icon: ShoppingCart },
+  { href: "/painel", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/painel/categorias", label: "Categorias", icon: Tags },
+  { href: "/painel/produtos", label: "Produtos", icon: Package },
+  { href: "/painel/insumos", label: "Insumos", icon: Gem },
+  { href: "/painel/ficha-tecnica", label: "Ficha Técnica", icon: Calculator },
+  { href: "/painel/pedidos/novo", label: "Novo Pedido", icon: ShoppingCart },
   {
-    href: "/admin/pedidos",
+    href: "/painel/pedidos",
     label: "Pedidos",
     icon: ClipboardList,
     exact: true,
     badge: true,
   },
-  { href: "/admin/pedidos/historico", label: "Histórico", icon: History },
+  { href: "/painel/pedidos/historico", label: "Histórico", icon: History },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

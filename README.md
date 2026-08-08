@@ -17,7 +17,7 @@ packages/
 
 1. `http://localhost:3000/login` — autenticação central
 2. `http://localhost:3000/hub` — escolha do sistema (2 cards)
-3. Card A → `/dona-lu/admin` | Card B → `/allativa/admin`
+3. Card A → `/dona-lu/painel` | Card B → `/allativa/painel`
 
 ## Pré-requisitos
 
@@ -65,7 +65,7 @@ Fluxo do usuário (mesmo domínio):
 
 1. `/login` → autentica  
 2. `/hub` → escolhe o sistema  
-3. `/dona-lu/admin` ou `/allativa/admin` → painel escolhido  
+3. `/dona-lu/painel` ou `/allativa/painel` → painel escolhido  
 
 **Root Directory recomendado:** `apps/portal`
 

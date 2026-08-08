@@ -11,7 +11,7 @@ loadRootEnv(__dirname);
  * Rewrites para os apps filhos:
  * - Só em desenvolvimento local (`next dev`): proxy → localhost:3001/3002.
  * - Na Vercel / produção: sem rewrite externo (evita DNS_HOSTNAME_RESOLVED_PRIVATE).
- *   Os links do Hub continuam relativos (`/dona-lu/admin`, `/allativa/admin`).
+ *   Os links do Hub continuam relativos (`/dona-lu/painel`, `/allativa/painel`).
  */
 const isLocalDev =
   process.env.VERCEL !== "1" && process.env.NODE_ENV === "development";

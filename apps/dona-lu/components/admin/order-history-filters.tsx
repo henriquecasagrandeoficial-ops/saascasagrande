@@ -22,7 +22,7 @@ export function OrderHistoryFilters({
   const usingDate = Boolean(selectedDate);
 
   function goToPeriod(period: OrderPeriod) {
-    router.push(`/admin/pedidos/historico?period=${period}`);
+    router.push(`/painel/pedidos/historico?period=${period}`);
   }
 
   function goToDate(date: string) {
@@ -30,7 +30,7 @@ export function OrderHistoryFilters({
       goToPeriod("month");
       return;
     }
-    router.push(`/admin/pedidos/historico?date=${date}`);
+    router.push(`/painel/pedidos/historico?date=${date}`);
   }
 
   return (
