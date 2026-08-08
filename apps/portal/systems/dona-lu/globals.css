@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 60 9% 98%; /* stone-50 */
+    --foreground: 24 10% 10%; /* stone-800 */
+
+    --card: 0 0% 100%;
+    --card-foreground: 24 10% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 24 10% 10%;
+
+    --primary: 337 64% 49%; /* coffee-600 (rosa Dona Lu) */
+    --primary-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --secondary: 340 30% 96%;
+    --secondary-foreground: 24 10% 10%;
+
+    --muted: 340 20% 94%;
+    --muted-foreground: 25 6% 45%;
+
+    --accent: 338 40% 93%;
+    --accent-foreground: 24 10% 10%;
+
+    --border: 340 15% 90%;
+    --input: 340 15% 90%;
+    --ring: 337 64% 49%;
+
+    --radius: 0.75rem;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-stone-50 text-stone-800;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Impressão térmica 80mm — comanda de cozinha
+ *
+ * Onde ficam as medidas:
+ * 1) Este arquivo (`app/globals.css`) — @page size 80mm + margem lateral
+ * 2) `components/admin/kitchen-receipt.tsx` — largura do conteúdo (72mm)
+ */
+@media screen {
+  .kitchen-receipt {
+    position: fixed;
+    left: -9999px;
+    top: 0;
+    z-index: -1;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+@media print {
+  @page {
+    margin: 0;
+    size: 80mm auto; /* largura do rolo térmico */
+  }
+
+  body {
+    margin: 0;
+    background: white;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .kitchen-receipt,
+  .kitchen-receipt * {
+    visibility: visible;
+  }
+
+  .kitchen-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    /* Papel inteiro (80mm). Padding lateral ≈ 1 letra de cada lado. */
+    width: 80mm;
+    padding: 0 2.5mm;
+    box-sizing: border-box;
+    opacity: 1;
+  }
+
+  /* Força o conteúdo a respeitar a área útil (72mm). */
+  .kitchen-receipt .kitchen-receipt-content,
+  .kitchen-receipt > * {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
+

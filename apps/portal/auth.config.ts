@@ -12,9 +12,16 @@ export const authConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const path = nextUrl.pathname;
+      const origin = nextUrl.origin;
+
       const isLogin = path === "/login";
       const isHub = path === "/hub" || path.startsWith("/hub/");
-      const origin = nextUrl.origin;
+      const isDonaPainel =
+        path === "/dona-lu/painel" || path.startsWith("/dona-lu/painel/");
+      const isAllativaPainel =
+        path === "/allativa/painel" || path.startsWith("/allativa/painel/");
+      const isSystemLogin =
+        path === "/dona-lu/painel/login" || path === "/allativa/painel/login";
 
       if (isLogin) {
         if (isLoggedIn) {
@@ -23,7 +30,13 @@ export const authConfig = {
         return true;
       }
 
-      if (isHub) {
+      if (isSystemLogin) {
+        return Response.redirect(
+          new URL(isLoggedIn ? portalHubUrl(origin) : portalLoginUrl(origin))
+        );
+      }
+
+      if (isHub || isDonaPainel || isAllativaPainel) {
         if (!isLoggedIn) {
           return Response.redirect(new URL(portalLoginUrl(origin)));
         }
